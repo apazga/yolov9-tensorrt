@@ -46,9 +46,14 @@ nvinfer1::IHostMemory *YoloV9::createEngine(nvinfer1::IBuilder *builder, nvinfer
     assert(network);
     nvonnxparser::IParser *parser = nvonnxparser::createParser(*network, mLogger);
     assert(parser);
-    bool parsed = parser->parseFromFile(mOnnxFile.c_str(), (int) nvinfer1::ILogger::Severity::kWARNING);
+    //bool parsed = parser->parseFromFile(mOnnxFile.c_str(), (int) nvinfer1::ILogger::Severity::kWARNING);
+    // DEBUG: Increase verbose
+    bool parsed = parser->parseFromFile(mOnnxFile.c_str(), (int) nvinfer1::ILogger::Severity::kVERBOSE);
     if (!parsed) {
-        mLogger.logPrint(Severity::kERROR, __FUNCTION__ , __LINE__, "onnx file parse error, please check onnx file!");
+        //mLogger.logPrint(Severity::kERROR, __FUNCTION__ , __LINE__, "onnx file parse error, please check onnx file!");
+        // DEBUG: More details about error
+        const auto* error = parser->getError(0); 
+        mLogger.logPrint(Severity::kERROR, __FUNCTION__ , __LINE__, std::string("ONNX file parse error, please check the ONNX file. Error: ") + (error ? error->desc() : "Unknown error"));
         std::abort();
     }
     config->setMaxWorkspaceSize(2_GiB);
@@ -63,6 +68,9 @@ nvinfer1::IHostMemory *YoloV9::createEngine(nvinfer1::IBuilder *builder, nvinfer
     nvinfer1::Dims inputDims = network->getInput(0)->getDimensions();
     if (inputDims.d[0] == -1)
     {
+        // DEBUG: Log the dimensions being set
+        mLogger.logPrint(Severity::kINFO, __FUNCTION__, __LINE__,std::string("Setting optimization profiles with batch sizes: Min = ") + std::to_string(batchDim.d[0]) + ", Opt = " + std::to_string(batchDim.d[0]) + ", Max = " + std::to_string(mMaxSupportBatchSize));
+
         nvinfer1::IOptimizationProfile *profileCalib = builder->createOptimizationProfile();
         const auto inputName = network->getInput(0)->getName();
         nvinfer1::Dims batchDim = inputDims;
